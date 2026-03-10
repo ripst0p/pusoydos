@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
+    <title>Pusoy Dos // VIP</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <div id="home-screen" class="screen active">
+        <div class="panel">
+            <h1>PUSOY DOS</h1>
+            <div class="subtitle">VIP High Stakes</div>
+            
+            <input type="text" id="playerName" placeholder="Enter Your Name" value="Player1">
+            <div class="color-picker">
+                <div class="c-dot selected" style="background:#ff3366" onclick="setColor(this, '#ff3366')"></div>
+                <div class="c-dot" style="background:#00e5ff" onclick="setColor(this, '#00e5ff')"></div>
+                <div class="c-dot" style="background:#ffea00" onclick="setColor(this, '#ffea00')"></div>
+                <div class="c-dot" style="background:#00e676" onclick="setColor(this, '#00e676')"></div>
+            </div>
+            <button onclick="setMode('offline')" class="btn-dark full-width">Play Offline (Bots)</button>
+            <hr class="divider">
+            <input type="text" id="roomCode" placeholder="Room Code" class="code-input">
+            <div class="btn-group">
+                <button onclick="hostRoom()" class="flex-1">HOST</button>
+                <button onclick="joinRoom()" class="flex-1 btn-outline">JOIN</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="lobby-screen" class="screen">
+        <div class="panel">
+            <h2>ROOM CODE: <span id="display-room-code" class="highlight-text"></span></h2>
+            <div id="host-controls">
+                <label style="color: #aaa; font-weight: bold;">Match Length:</label>
+                <select id="rounds-select">
+                    <option value="3">Best of 3</option>
+                    <option value="5">Best of 5</option>
+                    <option value="10">Best of 10</option>
+                </select>
+                <p class="sub-text">Friends can join mid-game to replace bots.</p>
+                <button onclick="startMultiplayerGame()" class="full-width">DEAL CARDS</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="scoreboard-screen" class="screen overlay">
+        <div class="panel">
+            <h2 id="round-title" class="highlight-text">ROUND OVER</h2>
+            <div id="score-list" class="score-list"></div>
+            <button id="next-round-btn" onclick="nextRound()" class="full-width" style="display:none;">NEXT ROUND</button>
+            <div id="waiting-host-msg" class="highlight-text" style="display:none; font-size: 1.2rem;">Waiting for Dealer...</div>
+        </div>
+    </div>
+
+    <div id="game-board" class="screen" onclick="clearSelection(event)">
+        
+        <div id="timer-bar"></div>
+        
+        <div class="top-bar">
+            <button class="leave-btn" onclick="leaveGame()">LEAVE TABLE</button>
+            
+            <div style="text-align: center; display: flex; align-items: center; justify-content: center;">
+                <span id="game-round-info" style="margin-right: 15px;">Round 1/3</span>
+                <span id="in-game-room-code" style="color: var(--gold); font-family: monospace; letter-spacing: 2px; border: 1px solid var(--gold); padding: 3px 10px; border-radius: 6px; font-size: 0.9rem; background: rgba(0,0,0,0.5);"></span>
+            </div>
+            
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <span class="hint-wrapper">Audio: <input type="checkbox" id="mute-toggle" checked style="width:auto; margin:0; transform:scale(1.2); cursor:pointer;"></span>
+            </div>
+        </div>
+
+        <div class="msg-overlay" id="msg"></div>
+        <div class="hand-type-msg" id="hand-type"></div>
+
+        <div id="tag-left" class="player-tag"><span class="c-dot small" id="c-left"></span> <span id="name-left">Bot 1</span> <span id="cards-left" class="card-count">13</span></div>
+        <div id="tag-top" class="player-tag"><span class="c-dot small" id="c-top"></span> <span id="name-top">Bot 2</span> <span id="cards-top" class="card-count">13</span></div>
+        <div id="tag-right" class="player-tag"><span class="c-dot small" id="c-right"></span> <span id="name-right">Bot 3</span> <span id="cards-right" class="card-count">13</span></div>
+
+        <div class="table-center" id="table-cards"></div>
+
+        <div class="chat-box" id="chat-ui" style="display:none;">
+            <div class="chat-msgs" id="chat-msgs"></div>
+            <div class="chat-input">
+                <input type="text" id="chat-text" placeholder="Table Chat..." onkeypress="if(event.key==='Enter') sendChat()">
+            </div>
+        </div>
+
+        <div class="controls" id="controls">
+            <button id="btn-play" onclick="playSelected()">PLAY (Enter)</button>
+            <button id="btn-pass" onclick="passTurn()" class="btn-pass">PASS (P)</button>
+        </div>
+
+        <div class="hand-container" id="player-hand"></div>
+    </div>
+
+    <script src="engine.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>
