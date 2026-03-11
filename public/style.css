@@ -135,7 +135,7 @@ button:disabled { background: #333; color: #666; border-color: #222; box-shadow:
 .controls { position: absolute; bottom: 160px; display: flex; gap: 15px; z-index: 10; background: rgba(0,0,0,0.7); padding: 12px 25px; border-radius: 15px; border: 1px solid #333; }
 .msg-overlay { position: absolute; top: 25%; width: 100%; text-align: center; font-size: 2.2rem; color: var(--gold); font-weight: 900; pointer-events: none; text-shadow: 0 4px 15px rgba(0,0,0,0.9); z-index: 20; letter-spacing: 2px; }
 .hand-type-msg { position: absolute; top: 55%; width: 100%; text-align: center; font-size: 1.2rem; color: #ccc; pointer-events: none; text-transform: uppercase; letter-spacing: 2px; }
-.overlay { background: rgba(0,0,0,0.95); backdrop-filter: blur(8px); z-index: 100; position: absolute; }
+.overlay { background: rgba(0,0,0,0.95); backdrop-filter: blur(8px); z-index: 100; position: absolute; top: 0; left: 0; }
 .score-list { text-align: left; padding: 0 20px; font-size: 1.2rem; line-height: 2.5; margin-bottom: 25px; }
 
 /* Chat */
