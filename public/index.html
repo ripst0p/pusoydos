@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
-    <title>Pusoy Dos Online</title>
+    <title>Pusoy Dos // Online</title>
     <link rel="stylesheet" href="style.css">
     <script src="/socket.io/socket.io.js"></script>
 </head>
@@ -14,20 +14,37 @@
             <h1>PUSOY DOS</h1>
             <div class="subtitle">ONLINE</div>
             
-            <input type="text" id="playerName" placeholder="Enter Your Name" value="Player1">
+            <div style="display: flex; gap: 10px; margin: 10px 0;">
+                <input type="text" id="playerName" placeholder="Enter Your Name" style="margin: 0; flex-grow: 1;">
+                <button onclick="saveProfile()" id="save-profile-btn" class="btn-outline" style="margin: 0; padding: 0 20px; font-size: 0.9rem;">SAVE</button>
+            </div>
             <div class="color-picker">
                 <div class="c-dot selected" style="background:#ff3366" onclick="setColor(this, '#ff3366')"></div>
                 <div class="c-dot" style="background:#00e5ff" onclick="setColor(this, '#00e5ff')"></div>
                 <div class="c-dot" style="background:#ffea00" onclick="setColor(this, '#ffea00')"></div>
                 <div class="c-dot" style="background:#00e676" onclick="setColor(this, '#00e676')"></div>
             </div>
+            
             <button onclick="setMode('offline')" class="btn-dark full-width">Play Offline (Bots)</button>
+            
+            <button onclick="showLeaderboard()" class="btn-outline full-width" style="margin-top: 10px;">🏆 LEADERBOARD</button>
+            
             <hr class="divider">
             <input type="text" id="roomCode" placeholder="Room Code" class="code-input">
             <div class="btn-group">
                 <button onclick="hostRoom()" class="flex-1">HOST</button>
                 <button onclick="joinRoom()" class="flex-1 btn-outline">JOIN</button>
             </div>
+        </div>
+    </div>
+
+    <div id="leaderboard-screen" class="screen overlay">
+        <div class="panel">
+            <h2 class="highlight-text">HALL OF FAME</h2>
+            <div id="leaderboard-list" class="score-list" style="max-height: 300px; overflow-y: auto;">
+                Loading...
+            </div>
+            <button onclick="closeLeaderboard()" class="full-width" style="margin-top: 20px;">CLOSE</button>
         </div>
     </div>
 
@@ -100,5 +117,4 @@
     <script src="engine.js"></script>
     <script src="client.js"></script>
 </body>
-
 </html>
