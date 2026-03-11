@@ -62,22 +62,72 @@ button:disabled { background: #333; color: #666; border-color: #222; box-shadow:
 /* Cards & Table */
 .table-center { width: 350px; height: 180px; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; gap: -45px; border: 2px dashed rgba(255,255,255,0.1); border-radius: 20px; }
 .hand-container { position: absolute; bottom: 25px; width: 100%; display: flex; justify-content: center; align-items: flex-end; height: 120px; }
-.card { width: 75px; height: 110px; background: #fff; border-radius: 8px; color: #111; display: flex; flex-direction: column; padding: 6px; box-sizing: border-box; border: 1px solid #aaa; cursor: pointer; position: relative; font-weight: 900; font-size: 1.4rem; transition: transform 0.1s ease-out, box-shadow 0.1s, border 0.1s; box-shadow: -4px 0 10px rgba(0,0,0,0.4); margin-left: -45px; }
+
+/* Base Card Styling */
+.card { 
+    width: 75px; 
+    height: 110px; 
+    background: #fff; 
+    border-radius: 8px; 
+    color: #111; 
+    display: flex; 
+    flex-direction: column; 
+    padding: 6px; 
+    box-sizing: border-box; 
+    border: 1px solid #aaa; 
+    cursor: pointer; 
+    position: relative; 
+    font-weight: 900; 
+    font-size: 1.4rem; 
+    box-shadow: -4px 0 10px rgba(0,0,0,0.4); 
+    margin-left: -45px; 
+}
 .card.red { color: #d32f2f; }
 .card:first-child { margin-left: 0; }
 
-/* Fixed Keyboard Focus & Hover */
-.card:hover { transform: translateY(-20px); z-index: 20; box-shadow: 0 10px 20px rgba(0,0,0,0.6); }
+/* --- DYNAMIC HAND HOVER EFFECT --- */
+#player-hand .card {
+    /* We use CSS variables here so the Up and Right animations can combine flawlessly */
+    --y-hover: 0px;
+    --y-select: 0px;
+    --x-push: 0px;
+    --scale: 1;
+    transform: translate(var(--x-push), calc(var(--y-hover) + var(--y-select))) scale(var(--scale));
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s, border 0.2s;
+}
 
-/* Blue keyboard outline stays completely flat to prevent stair-casing */
+/* 1. When you hover, the card scales up and lifts */
+#player-hand .card:hover { 
+    --y-hover: -25px; 
+    --scale: 1.1; 
+    z-index: 40; 
+    box-shadow: -8px 15px 25px rgba(0,0,0,0.7); 
+}
+
+/* 2. This pushes ALL cards to the right of your mouse out of the way! */
+#player-hand .card:hover ~ .card { 
+    --x-push: 45px; 
+}
+
+/* 3. Selected cards stay high and gold */
+#player-hand .card.selected { 
+    --y-select: -35px; 
+    border: 3px solid var(--gold); 
+    box-shadow: 0 15px 30px rgba(0,0,0,0.8), 0 0 25px rgba(212, 175, 55, 0.6); 
+    z-index: 25; 
+}
+
+/* 4. If you hover over a card that is ALREADY selected, give it a tiny extra bump */
+#player-hand .card.selected:hover {
+    --y-hover: -10px; 
+    z-index: 40;
+}
+
+/* Keyboard Focus styling - stays flat to prevent stair-casing */
 .card.keyboard-focus { border: 3px solid #00e5ff; box-shadow: 0 0 15px #00e5ff; z-index: 22; }
+.card.selected.keyboard-focus { border-color: #fff; box-shadow: 0 0 30px #fff; }
 
-/* Selected cards pop up high */
-.card.selected { transform: translateY(-35px); border: 3px solid var(--gold); box-shadow: 0 15px 30px rgba(0,0,0,0.8), 0 0 25px rgba(212, 175, 55, 0.6); z-index: 25; }
-
-/* If a selected card also has keyboard focus, it stays high but glows white */
-.card.selected.keyboard-focus { transform: translateY(-35px); border-color: #fff; box-shadow: 0 0 30px #fff; }
-
+/* Table Cards */
 .on-table { position: relative; margin-left: -55px; animation: drop 0.2s forwards; pointer-events: none; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
 @keyframes drop { from{transform: scale(1.5) translateY(-30px); opacity:0;} to{transform: scale(1) rotate(var(--rot)); opacity:1;} }
 
@@ -94,10 +144,14 @@ button:disabled { background: #333; color: #666; border-color: #222; box-shadow:
 .chat-input { display: flex; border-top: 1px solid #444; }
 .chat-input input { margin: 0; border: none; border-radius: 0; padding: 12px; flex-grow: 1; background: transparent; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px;}
 
+/* Mobile Optimization */
 @media (max-width: 768px) {
     #game-board { border-width: 6px; border-radius: 15px; margin: 5px; height: calc(100vh - 10px); }
     .card { width: 55px; height: 85px; margin-left: -35px; font-size: 1.1rem; }
     .chat-box { width: 180px; height: 160px; bottom: 200px; right: 10px; }
     .controls { bottom: 120px; transform: scale(0.9); padding: 8px 15px; }
     .hand-container { bottom: 15px; height: 90px; }
+    
+    /* Smaller sibling push on phones so cards don't fly off the screen */
+    #player-hand .card:hover ~ .card { --x-push: 25px; } 
 }
