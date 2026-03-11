@@ -19,15 +19,48 @@ let socket;
 try { socket = io(); } catch(e) { console.warn("Running in Offline Mode"); }
 
 let isOnline = false, isHost = true, roomId = null;
-let myName = "Player1", myColor = "#ff3366", mySeatIndex = 0; 
+
+// --- SILENT LOGIN & LOCAL STORAGE ---
+let myPlayerId = localStorage.getItem('pusoy_id') || null;
+let myName = localStorage.getItem('pusoy_name') || "";
+let myColor = localStorage.getItem('pusoy_color') || "#ff3366";
+let myDisplayName = myName || "Player"; // The server-assigned name with the (1) tag if needed
+let mySeatIndex = 0; 
 
 let gameState = { players: [], turn: 0, lastHand: null, lastPlayerIdx: -1, passCount: 0, tableCards: [], round: 1, maxRounds: 3, scores: [0,0,0,0], isGameOver: false };
 let selectedIndices = [];
 let focusedIndex = -1; 
 let currentTableState = ""; 
-
 let turnTimerInterval;
 let timeLeft = 30;
+
+// Auto-fill inputs on page load
+document.addEventListener("DOMContentLoaded", () => {
+    if(myName) document.getElementById('playerName').value = myName;
+    document.querySelectorAll('.c-dot').forEach(d => {
+        d.classList.remove('selected');
+        if(d.style.background === myColor || d.style.backgroundColor === myColor) d.classList.add('selected');
+    });
+});
+
+// --- EXPLICIT SAVE PROFILE ---
+function saveProfile() {
+    myName = document.getElementById('playerName').value.trim() || "Player";
+    localStorage.setItem('pusoy_name', myName);
+    localStorage.setItem('pusoy_color', myColor);
+    
+    const btn = document.getElementById('save-profile-btn');
+    if (btn) {
+        btn.innerText = "✓ SAVED";
+        btn.style.backgroundColor = "var(--gold)";
+        btn.style.color = "#111";
+        setTimeout(() => {
+            btn.innerText = "SAVE";
+            btn.style.backgroundColor = "transparent";
+            btn.style.color = "var(--gold)";
+        }, 2000);
+    }
+}
 
 // --- UI HELPERS ---
 function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
@@ -37,6 +70,32 @@ function clearSelection(e) {
     if (e && e.target.id !== 'game-board') return; 
     focusedIndex = -1; 
     if (selectedIndices.length > 0) { selectedIndices = []; renderClientState(); } 
+}
+
+// The wrapper that silently logs you in before creating/joining a room
+function silentLogin(callback) {
+    if(!socket) return callback(); 
+    myName = document.getElementById('playerName').value.trim() || "Player";
+    
+    localStorage.setItem('pusoy_name', myName);
+    localStorage.setItem('pusoy_color', myColor);
+    
+    socket.emit('login', { id: myPlayerId, name: myName, color: myColor });
+    socket.once('loginSuccess', (profile) => {
+        myPlayerId = profile.id;
+        myDisplayName = profile.displayName;
+        localStorage.setItem('pusoy_id', myPlayerId); 
+        callback();
+    });
+}
+
+// --- LEADERBOARD LOGIC ---
+function showLeaderboard() {
+    document.getElementById('leaderboard-screen').style.display = 'flex';
+    if(socket) socket.emit('getLeaderboard');
+}
+function closeLeaderboard() {
+    document.getElementById('leaderboard-screen').style.display = 'none';
 }
 
 // --- KEYBOARD SHORTCUTS ---
@@ -72,9 +131,26 @@ window.addEventListener('keydown', (e) => {
 });
 
 // --- MENU & LEAVE LOGIC ---
-function setMode(mode) { myName = document.getElementById('playerName').value || "Player"; if(mode === 'offline') { isOnline = false; isHost = true; setupOfflineGame(); } }
-function hostRoom() { myName = document.getElementById('playerName').value || "Host"; isOnline = true; isHost = true; roomId = Math.random().toString(36).substring(2, 7).toUpperCase(); if(socket) socket.emit('createRoom', { roomId }); document.getElementById('chat-ui').style.display = 'flex'; }
-function joinRoom() { myName = document.getElementById('playerName').value || "Player"; let code = document.getElementById('roomCode').value.toUpperCase(); if(!code) return alert("Enter a room code!"); isOnline = true; isHost = false; roomId = code; if(socket) socket.emit('joinRoom', { roomId, playerName: myName, playerColor: myColor }); document.getElementById('chat-ui').style.display = 'flex'; }
+function setMode(mode) { 
+    if(mode === 'offline') { isOnline = false; isHost = true; myDisplayName = document.getElementById('playerName').value || "Player"; setupOfflineGame(); } 
+}
+function hostRoom() { 
+    silentLogin(() => {
+        isOnline = true; isHost = true; 
+        roomId = Math.random().toString(36).substring(2, 7).toUpperCase(); 
+        socket.emit('createRoom', { roomId }); 
+        document.getElementById('chat-ui').style.display = 'flex';
+    });
+}
+function joinRoom() { 
+    let code = document.getElementById('roomCode').value.toUpperCase(); 
+    if(!code) return alert("Enter a room code!"); 
+    silentLogin(() => {
+        isOnline = true; isHost = false; roomId = code; 
+        socket.emit('joinRoom', { roomId, playerName: myDisplayName, playerColor: myColor, realId: myPlayerId }); 
+        document.getElementById('chat-ui').style.display = 'flex';
+    });
+}
 function leaveGame() { if(confirm("Are you sure you want to leave the VIP Table?")) { if(isOnline && socket) socket.emit('leaveRoom'); location.reload(); } }
 
 // --- SOCKET LISTENERS ---
@@ -84,9 +160,9 @@ if(socket) {
         if (!isHost) return;
         let botIndex = gameState.players.findIndex(p => p.isBot);
         if (botIndex !== -1) {
-            gameState.players[botIndex] = { ...gameState.players[botIndex], id: newPlayer.socketId, name: newPlayer.name, color: newPlayer.color, isBot: false };
+            gameState.players[botIndex] = { ...gameState.players[botIndex], id: newPlayer.socketId, realId: newPlayer.realId, name: newPlayer.playerName, color: newPlayer.playerColor, isBot: false };
             socket.emit('joinAccepted', { targetSocketId: newPlayer.socketId, roomId, gameState });
-            showMsg(`${newPlayer.name} Sat Down`); renderClientState(); broadcastState();
+            showMsg(`${newPlayer.playerName} Sat Down`); renderClientState(); broadcastState();
         } else { socket.emit('joinRejected', { targetSocketId: newPlayer.socketId, reason: "Table Full" }); }
     });
     socket.on('gameJoined', (data) => { roomId = data.roomId; gameState = data.gameState; isHost = false; mySeatIndex = gameState.players.findIndex(p => p.id === socket.id); showScreen('game-board'); renderClientState(); startTimer(); });
@@ -103,16 +179,36 @@ if(socket) {
         if(!isHost) return;
         let pIndex = gameState.players.findIndex(p => p.id === socketId);
         if(pIndex !== -1) {
-            gameState.players[pIndex].isBot = true; gameState.players[pIndex].id = `bot${pIndex}`; gameState.players[pIndex].name = `Bot ${pIndex}`; gameState.players[pIndex].color = '#555';
+            gameState.players[pIndex].isBot = true; gameState.players[pIndex].id = `bot${pIndex}`; gameState.players[pIndex].realId = null; gameState.players[pIndex].name = `Bot ${pIndex}`; gameState.players[pIndex].color = '#555';
             showMsg(`Player Left. Bot Took Over.`); broadcastState(); renderClientState(); if(gameState.turn === pIndex) processTurn();
         }
     });
+    socket.on('leaderboardData', (topPlayers) => {
+        const list = document.getElementById('leaderboard-list');
+        if(topPlayers.length === 0) return list.innerHTML = "<div style='color:#888; text-align:center;'>No games played yet.</div>";
+        list.innerHTML = topPlayers.map((p, i) => `
+            <div style="display:flex; justify-content:space-between; margin-bottom: 12px; border-bottom: 1px solid #333; padding-bottom: 8px;">
+                <span style="color:${p.color}; font-weight:bold;">#${i+1} ${p.displayName}</span>
+                <span style="color:var(--gold);">${p.wins} Wins</span>
+            </div>
+        `).join('');
+    });
 }
-function sendChat() { let input = document.getElementById('chat-text'); if(input.value.trim() && socket) { socket.emit('sendChat', { roomId, name: myName, msg: input.value, color: myColor }); input.value = ''; } }
+function sendChat() { let input = document.getElementById('chat-text'); if(input.value.trim() && socket) { socket.emit('sendChat', { roomId, name: myDisplayName, msg: input.value, color: myColor }); input.value = ''; } }
 
 // --- GAME INITIALIZATION ---
-function setupOfflineGame() { gameState.maxRounds = 3; gameState.players = [ { id: 'local', name: myName, color: myColor, isBot: false, hand: [] }, { id: 'b1', name: 'Bot 1', color: '#00e5ff', isBot: true, hand: [] }, { id: 'b2', name: 'Bot 2', color: '#ffea00', isBot: true, hand: [] }, { id: 'b3', name: 'Bot 3', color: '#00e676', isBot: true, hand: [] } ]; mySeatIndex = 0; startNewRound(); }
-function startMultiplayerGame() { if(!isHost) return; gameState.maxRounds = parseInt(document.getElementById('rounds-select').value); gameState.players = [ { id: socket.id, name: myName, color: myColor, isBot: false, hand: [] }, { id: 'b1', name: 'Bot 1', color: '#777', isBot: true, hand: [] }, { id: 'b2', name: 'Bot 2', color: '#777', isBot: true, hand: [] }, { id: 'b3', name: 'Bot 3', color: '#777', isBot: true, hand: [] } ]; mySeatIndex = 0; startNewRound(); }
+function setupOfflineGame() { gameState.maxRounds = 3; gameState.players = [ { id: 'local', realId: 'local', name: myDisplayName, color: myColor, isBot: false, hand: [] }, { id: 'b1', name: 'Bot 1', color: '#00e5ff', isBot: true, hand: [] }, { id: 'b2', name: 'Bot 2', color: '#ffea00', isBot: true, hand: [] }, { id: 'b3', name: 'Bot 3', color: '#00e676', isBot: true, hand: [] } ]; mySeatIndex = 0; startNewRound(); }
+function startMultiplayerGame() { 
+    if(!isHost) return; 
+    gameState.maxRounds = parseInt(document.getElementById('rounds-select').value); 
+    gameState.players = [ 
+        { id: socket.id, realId: myPlayerId, name: myDisplayName, color: myColor, isBot: false, hand: [] }, 
+        { id: 'b1', name: 'Bot 1', color: '#777', isBot: true, hand: [] }, 
+        { id: 'b2', name: 'Bot 2', color: '#777', isBot: true, hand: [] }, 
+        { id: 'b3', name: 'Bot 3', color: '#777', isBot: true, hand: [] } 
+    ]; 
+    mySeatIndex = 0; startNewRound(); 
+}
 
 function startNewRound() {
     showScreen('game-board'); document.getElementById('scoreboard-screen').style.display = 'none'; gameState.isGameOver = false;
@@ -172,7 +268,6 @@ function renderClientState() {
 
     document.getElementById('game-round-info').innerText = `Round ${gameState.round}/${gameState.maxRounds}`;
     
-    // --- THE FIX: Display the Room Code ---
     const roomCodeEl = document.getElementById('in-game-room-code');
     if (roomCodeEl) {
         roomCodeEl.innerText = isOnline ? `ROOM: ${roomId}` : `OFFLINE`;
@@ -200,5 +295,29 @@ function passTurn() { if(gameState.lastPlayerIdx === -1) { playSound('error'); r
 function executeMove(cards, handObj) { gameState.tableCards = cards; gameState.players[gameState.turn].hand = gameState.players[gameState.turn].hand.filter(h => !cards.find(c => c.r===h.r && c.s===h.s)); gameState.lastHand = handObj; gameState.lastPlayerIdx = gameState.turn; gameState.passCount = 0; if(gameState.players[gameState.turn].hand.length === 0) return handleRoundEnd(gameState.turn); nextTurn(); }
 function passGameTurn() { gameState.passCount++; playSound('pass'); showMsg(`${gameState.players[gameState.turn].name} Passed`); if(gameState.passCount >= 3) { gameState.lastHand = null; gameState.tableCards = []; } nextTurn(); }
 function nextTurn() { gameState.turn = (gameState.turn + 1) % 4; selectedIndices = []; focusedIndex = -1; if(isOnline && isHost) broadcastState(); renderClientState(); startTimer(); processTurn(); }
-function handleRoundEnd(winnerIdx) { gameState.isGameOver = true; gameState.scores[winnerIdx]++; clearInterval(turnTimerInterval); if(isOnline && isHost) broadcastState(); setTimeout(() => { document.getElementById('scoreboard-screen').style.display = 'flex'; document.getElementById('round-title').innerText = `ROUND ${gameState.round} OVER!`; document.getElementById('score-list').innerHTML = gameState.players.map((p, i) => `<div style="color:${p.color}; font-weight:bold; margin: 10px 0;">${p.name}: ${gameState.scores[i]} Wins ${i===winnerIdx?'🏆':''}</div>`).join(''); if(isHost) { document.getElementById('next-round-btn').style.display = 'block'; if(gameState.round >= gameState.maxRounds) document.getElementById('next-round-btn').innerText = "END MATCH"; } else { document.getElementById('waiting-host-msg').style.display = 'block'; } }, 1500); }
+
+function handleRoundEnd(winnerIdx) { 
+    gameState.isGameOver = true; 
+    gameState.scores[winnerIdx]++; 
+    
+    if(isOnline && isHost && !gameState.players[winnerIdx].isBot) {
+        socket.emit('recordWin', gameState.players[winnerIdx].realId);
+    }
+    
+    clearInterval(turnTimerInterval); 
+    if(isOnline && isHost) broadcastState(); 
+    
+    setTimeout(() => { 
+        document.getElementById('scoreboard-screen').style.display = 'flex'; 
+        document.getElementById('round-title').innerText = `ROUND ${gameState.round} OVER!`; 
+        document.getElementById('score-list').innerHTML = gameState.players.map((p, i) => `<div style="color:${p.color}; font-weight:bold; margin: 10px 0;">${p.name}: ${gameState.scores[i]} Wins ${i===winnerIdx?'🏆':''}</div>`).join(''); 
+        if(isHost) { 
+            document.getElementById('next-round-btn').style.display = 'block'; 
+            if(gameState.round >= gameState.maxRounds) document.getElementById('next-round-btn').innerText = "END MATCH"; 
+        } else { 
+            document.getElementById('waiting-host-msg').style.display = 'block'; 
+        } 
+    }, 1500); 
+}
+
 function nextRound() { if(gameState.round >= gameState.maxRounds) { alert("Match Finished!"); location.reload(); return; } gameState.round++; startNewRound(); }
